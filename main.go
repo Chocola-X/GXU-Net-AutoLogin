@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/url"
 	"time"
+	"io"
 )
 
 const configFileName = "config.txt"
@@ -17,6 +18,7 @@ const configFileName = "config.txt"
 type Config struct {
 	User        string
 	Password    string
+	NetType     string // 新增字段
 	StudentMode bool
 
 	// 路由器模式（当两者都非空时启用）
@@ -30,21 +32,23 @@ func loadConfig() (*Config, error) {
 	if _, err := os.Stat(configFileName); os.IsNotExist(err) {
 		// 创建默认模板
 		defaultContent := `# 校园网登陆脚本信息设置：（注意请不要改变格式）
-# 用户名：（填写示例：User=1807210721）
-User=
-# 密码：（填写示例：Password=www.nekopara.uk）
-Password=
-# 是否开启学生上网时段模式？1为开启，0为关闭，开启后周一到周五0:00-6:00将不会尝试重连
-Student_Mode=0
-# 开启路由器登陆模式：
-# 如果填写以下两个参数（均非空），则使用指定的路由器IP和MAC进行认证。
-# 否则使用本机IP和MAC。
-# 示例：
-# Router_IP=172.16.6.6
-# Router_MAC=36:88:8A:99:A4:CC
-Router_IP=
-Router_MAC=
-`
+			# 用户名：（填写示例：User=1807210721）
+			User=
+			# 密码：（填写示例：Password=www.nekopara.uk）
+			Password=
+			# 运营商选择，留空选择校园网，如果需要选择运营商，电信填写telecom，联通填写unicom，移动填写cmcc
+			Net_Type=
+			# 是否开启学生上网时段模式？1为开启，0为关闭，开启后周一到周五0:00-6:00将不会尝试重连
+			Student_Mode=0
+			# 开启路由器登陆模式：
+			# 如果填写以下两个参数（均非空），则使用指定的路由器IP和MAC进行认证。
+			# 否则使用本机IP和MAC。
+			# 示例：
+			# Router_IP=172.16.6.6
+			# Router_MAC=36:88:8A:99:A4:CC
+			Router_IP=
+			Router_MAC=
+			`
 
 			err = os.WriteFile(configFileName, []byte(defaultContent), 0644)
 			if err != nil {
@@ -83,6 +87,8 @@ Router_MAC=
 				cfg.User = value
 			case "Password":
 				cfg.Password = value
+			case "Net_Type":
+				cfg.NetType = value // 新增这一行
 			case "Student_Mode":
 				cfg.StudentMode = (value == "1")
 			case "Router_IP":
@@ -100,9 +106,23 @@ Router_MAC=
 	if cfg.User == "" || cfg.Password == "" {
 		return nil, fmt.Errorf("请在 '%s' 中填写用户名和密码", configFileName)
 	}
+	// 在 loadConfig 函数中，解析配置后添加：
+	if cfg.NetType != "" {
+		// 检查是否是合法的运营商
+		valid := false
+		switch strings.ToLower(cfg.NetType) {
+			case "telecom", "unicom", "cmcc":
+				valid = true
+		}
+
+		if !valid {
+			return nil, fmt.Errorf("错误：运营商类型必须为空、telecom、unicom或cmcc（不区分大小写），当前值: %s", cfg.NetType)
+		}
+	}
 
 	return cfg, nil
 }
+
 func getLocalIP() (string, error) {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
@@ -155,10 +175,15 @@ func login(cfg *Config, ip, mac string) {
 	// 格式化 MAC：去掉冒号，转小写（适配你 bash 脚本的行为）
 	cleanMAC := strings.ReplaceAll(strings.ToLower(mac), ":", "")
 
+	userAccount := cfg.User
+	if cfg.NetType != "" {
+		userAccount = cfg.User + "@" + cfg.NetType
+	}
+
 	params := url.Values{
 		"callback":       {"dr1003"},
 		"login_method":   {"1"},
-		"user_account":   {cfg.User},
+		"user_account":   {userAccount},
 		"user_password":  {cfg.Password},
 		"wlan_user_ip":   {ip},
 		"wlan_user_mac":  {cleanMAC},
@@ -180,8 +205,18 @@ func login(cfg *Config, ip, mac string) {
 	}
 	defer resp.Body.Close()
 
+	// 读取并打印响应体
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("❌ 读取响应体失败: %v\n", err)
+		return
+	}
+	bodyStr := string(body)
+
 	fmt.Printf("✅ 已发送登录请求（HTTP状态码: %d）\n", resp.StatusCode)
+	fmt.Printf("响应内容: %s\n", bodyStr)
 }
+
 func shouldSkipLogin(cfg *Config) bool {
 	if !cfg.StudentMode {
 		return false
@@ -199,6 +234,7 @@ func shouldSkipLogin(cfg *Config) bool {
 
 	return false
 }
+
 func getLoginInfo(cfg *Config) (ip, mac string, err error) {
 	// 如果启用了路由器模式（两个字段都非空）
 	if cfg.RouterIP != "" && cfg.RouterMAC != "" {
@@ -218,6 +254,7 @@ func getLoginInfo(cfg *Config) (ip, mac string, err error) {
 	}
 	return ip, mac, nil
 }
+
 func main() {
 	fmt.Printf("🚀广西大学校园网自动登陆程序 By：GTX690战术核显卡导弹（www.nekopara.uk）\n")
 	cfg, err := loadConfig()
@@ -230,6 +267,7 @@ func main() {
 	fmt.Printf("✅ 配置加载成功！\n")
 	fmt.Printf("用户: %s\n", cfg.User)
 	fmt.Printf("密码: %s\n", cfg.Password)
+	fmt.Printf("运营商: %s\n", cfg.NetType) // 新增这一行
 	fmt.Printf("学生模式: %t\n", cfg.StudentMode)
 	if cfg.RouterIP != "" && cfg.RouterMAC != "" {
 		fmt.Printf("路由器模式: IP=%s, MAC=%s\n", cfg.RouterIP, cfg.RouterMAC)
