@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"time"
 	"io"
+	"flag"
 )
 
 const configFileName = "config.txt"
@@ -54,7 +55,7 @@ Router_MAC=
 			if err != nil {
 				return nil, fmt.Errorf("无法创建配置文件: %v", err)
 			}
-			return nil, fmt.Errorf("配置文件 '%s' 已创建，请先填写上网信息后重新运行程序", configFileName)
+			return nil, fmt.Errorf("未找到配置文件，配置文件 '%s' 已创建，请先填写上网信息后重新运行程序", configFileName)
 	}
 
 	// 读取并解析
@@ -160,7 +161,7 @@ func getMACAddress() (string, error) {
 
 func isNetworkOK() bool {
 	client := &http.Client{
-		Timeout: 3 * time.Second,
+		Timeout: 1 * time.Second,
 	}
 	resp, err := client.Get("http://connect.rom.miui.com/generate_204")
 	if err != nil {
@@ -255,43 +256,165 @@ func getLoginInfo(cfg *Config) (ip, mac string, err error) {
 	return ip, mac, nil
 }
 
+func printHelp() {
+	fmt.Println(`广西大学校园网自动登陆程序参数说明：
+必须参数：
+-user      用户名（必须提供）
+-passwd    密码（必须提供）
+
+可选参数：
+-nettype   运营商类型（telecom, unicom, cmcc），不加参数则使用校园网
+-studentmode  启用学生模式（不带值）
+-ip        路由器IP（必须与-mac一起使用）
+-mac       路由器MAC（必须与-ip一起使用）
+-help      显示此帮助信息
+
+示例（Linux）：
+./GXU_Net_AutoLogin -user 1807210721 -passwd mypassword
+/opt/GXU_Net_AutoLogin/GXU_Net_AutoLogin -user 1807210721 -passwd mypassword -nettype telecom -studentmode
+./GXU_Net_AutoLogin -user 1807210721 -passwd mypassword -ip 172.16.6.6 -mac 36:88:8A:99:A4:CC
+
+示例（Windows）：
+GXU_Net_AutoLogin.exe -user 1807210721 -passwd mypassword
+C:\\Program Files\\GXU_Net_AutoLogin\\GXU_Net_AutoLogin.exe -user 1807210721 -passwd mypassword -nettype telecom -studentmode
+C:\\Program Files\\GXU_Net_AutoLogin\\GXU_Net_AutoLogin.exe -user 1807210721 -passwd mypassword -ip 172.16.6.6 -mac 36:88:8A:99:A4:CC
+`)
+}
+
 func main() {
 	fmt.Printf("🚀广西大学校园网自动登陆程序 By：GTX690战术核显卡导弹（www.nekopara.uk）\n")
-	cfg, err := loadConfig()
-	if err != nil {
-		fmt.Println("❌ 错误:", err)
-		fmt.Println("💡 请编辑 config.txt 后重新运行本程序。")
+	// 定义命令行参数
+	var (
+		user        string
+		passwd      string
+		nettype     string
+		studentMode bool
+		ip          string
+		mac         string
+		help        bool
+	)
+
+	flag.StringVar(&user, "user", "", "用户名")
+	flag.StringVar(&passwd, "passwd", "", "密码")
+	flag.StringVar(&nettype, "nettype", "", "运营商类型（telecom, unicom, cmcc）")
+	flag.BoolVar(&studentMode, "studentmode", false, "启用学生模式")
+	flag.StringVar(&ip, "ip", "", "路由器IP（必须与-mac一起使用）")
+	flag.StringVar(&mac, "mac", "", "路由器MAC（必须与-ip一起使用）")
+	flag.BoolVar(&help, "help", false, "显示帮助信息")
+	flag.Parse()
+
+	// 显示帮助信息
+	if help {
+		printHelp()
+		os.Exit(0)
+	}
+
+	// 检查必须参数
+	if (user == "" && passwd == "") {
+		// 从配置文件加载
+		cfg, err := loadConfig()
+		if err != nil {
+			fmt.Println("❌ 错误:", err)
+			fmt.Println("💡 请编辑 config.txt 后重新运行本程序。")
+			os.Exit(1)
+		}
+		fmt.Printf("✅ 配置加载成功！\n")
+		fmt.Printf("用户: %s\n", cfg.User)
+		fmt.Printf("密码: %s\n", cfg.Password)
+		fmt.Printf("运营商: %s\n", cfg.NetType)
+		fmt.Printf("学生模式: %t\n", cfg.StudentMode)
+		if cfg.RouterIP != "" && cfg.RouterMAC != "" {
+			fmt.Printf("路由器模式: IP=%s, MAC=%s\n", cfg.RouterIP, cfg.RouterMAC)
+		}
+		// 使用配置文件中的配置
+		cfg.User = cfg.User
+		cfg.Password = cfg.Password
+		cfg.NetType = nettype // 优先使用命令行参数，如果命令行没提供则保持配置文件中的值
+		cfg.StudentMode = studentMode
+		cfg.RouterIP = ip
+		cfg.RouterMAC = mac
+	} else if user != "" && passwd != "" {
+		// 从命令行参数加载
+		cfg := &Config{
+			User:        user,
+			Password:    passwd,
+			NetType:     nettype,
+			StudentMode: studentMode,
+			RouterIP:    ip,
+			RouterMAC:   mac,
+		}
+
+		// 校验运营商类型
+		if nettype != "" {
+			valid := false
+			switch strings.ToLower(nettype) {
+				case "telecom", "unicom", "cmcc":
+					valid = true
+			}
+			if !valid {
+				fmt.Printf("❌ 错误：运营商类型必须为telecom, unicom, cmcc（不区分大小写），当前值: %s\n", nettype)
+				os.Exit(1)
+			}
+		}
+
+		// 校验路由器IP/MAC
+		if (ip != "" && mac == "") || (ip == "" && mac != "") {
+			fmt.Println("❌ 错误：必须同时提供ip和mac参数，两者缺一不可")
+			os.Exit(1)
+		}
+
+		// 显示配置
+		fmt.Printf("✅ 命令行参数加载成功！\n")
+		fmt.Printf("用户: %s\n", cfg.User)
+		fmt.Printf("密码: %s\n", cfg.Password)
+		fmt.Printf("运营商: %s\n", cfg.NetType)
+		fmt.Printf("学生模式: %t\n", cfg.StudentMode)
+		if cfg.RouterIP != "" && cfg.RouterMAC != "" {
+			fmt.Printf("路由器模式: IP=%s, MAC=%s\n", cfg.RouterIP, cfg.RouterMAC)
+		}
+
+		// 使用命令行参数配置
+		cfg.User = user
+		cfg.Password = passwd
+		cfg.NetType = nettype
+		cfg.StudentMode = studentMode
+		cfg.RouterIP = ip
+		cfg.RouterMAC = mac
+	} else {
+		// 只提供了其中一个参数
+		fmt.Println("❌ 错误：必须同时提供user和passwd参数，或者都不提供（通过配置文件）")
+		fmt.Println("💡 请使用 -help 查看参数说明")
 		os.Exit(1)
 	}
 
-	fmt.Printf("✅ 配置加载成功！\n")
-	fmt.Printf("用户: %s\n", cfg.User)
-	fmt.Printf("密码: %s\n", cfg.Password)
-	fmt.Printf("运营商: %s\n", cfg.NetType) // 新增这一行
-	fmt.Printf("学生模式: %t\n", cfg.StudentMode)
-	if cfg.RouterIP != "" && cfg.RouterMAC != "" {
-		fmt.Printf("路由器模式: IP=%s, MAC=%s\n", cfg.RouterIP, cfg.RouterMAC)
-	}
-
 	// 获取用于登录的 IP 和 MAC（自动判断模式）
-	ip, mac, err := getLoginInfo(cfg)
+	ipAddr, macAddr, err := getLoginInfo(&Config{
+		RouterIP:  ip,
+		RouterMAC: mac,
+	})
 	if err != nil {
 		fmt.Printf("❌ %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("✅ 守护进程启动：认证IP=%s | 认证MAC=%s\n", ip, mac)
+	fmt.Printf("✅ 守护进程启动：认证IP=%s | 认证MAC=%s\n", ipAddr, macAddr)
 
 	// 主循环
 	for {
-		if shouldSkipLogin(cfg) {
+		if shouldSkipLogin(&Config{
+			StudentMode: studentMode,
+		}) {
 			time.Sleep(1 * time.Second)
 			continue
 		}
 
 		if !isNetworkOK() {
 			fmt.Println("⚠️ 检测到断网，正在重新登录...")
-			login(cfg, ip, mac)
+			login(&Config{
+				User:     user,
+				Password: passwd,
+				NetType:  nettype,
+			}, ipAddr, macAddr)
 		}
 
 		time.Sleep(1 * time.Second)
