@@ -32,23 +32,23 @@ func loadConfig() (*Config, error) {
 	if _, err := os.Stat(configFileName); os.IsNotExist(err) {
 		// 创建默认模板
 		defaultContent := `# 校园网登陆脚本信息设置：（注意请不要改变格式）
-			# 用户名：（填写示例：User=1807210721）
-			User=
-			# 密码：（填写示例：Password=www.nekopara.uk）
-			Password=
-			# 运营商选择，留空选择校园网，如果需要选择运营商，电信填写telecom，联通填写unicom，移动填写cmcc
-			Net_Type=
-			# 是否开启学生上网时段模式？1为开启，0为关闭，开启后周一到周五0:00-6:00将不会尝试重连
-			Student_Mode=0
-			# 开启路由器登陆模式：
-			# 如果填写以下两个参数（均非空），则使用指定的路由器IP和MAC进行认证。
-			# 否则使用本机IP和MAC。
-			# 示例：
-			# Router_IP=172.16.6.6
-			# Router_MAC=36:88:8A:99:A4:CC
-			Router_IP=
-			Router_MAC=
-			`
+# 用户名：（填写示例：User=1807210721）
+User=
+# 密码：（填写示例：Password=www.nekopara.uk）
+Password=
+# 运营商选择，留空选择校园网，如果需要选择运营商，电信填写telecom，联通填写unicom，移动填写cmcc
+Net_Type=
+# 是否开启学生上网时段模式？1为开启，0为关闭，开启后周一到周五0:00-6:00将不会尝试重连
+Student_Mode=0
+# 开启路由器登陆模式：
+# 如果填写以下两个参数（均非空），则使用指定的路由器IP和MAC进行认证。
+# 否则使用本机IP和MAC。
+# 示例：
+# Router_IP=172.16.6.6
+# Router_MAC=36:88:8A:99:A4:CC
+Router_IP=
+Router_MAC=
+`
 
 			err = os.WriteFile(configFileName, []byte(defaultContent), 0644)
 			if err != nil {
