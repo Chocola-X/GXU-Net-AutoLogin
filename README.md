@@ -27,7 +27,17 @@
 3. 首次运行会生成 `config.txt`，按提示填写账号密码
 4. 再次运行即可后台守护
 
-### 方法二：从源码编译（推荐 Linux 用户）
+### 方法二：使用包管理器安装
+
+Arch Linux 用户可从 [AUR](https://aur.archlinux.org/packages/gxu-net-autologin) 安装：
+
+```bash
+[yay/paru] -S gxu-net-autologin
+```
+
+配置文件路径为 `/etc/gxu-net-autologin/config.txt`。
+
+### 方法三：从源码编译（推荐 Linux 用户）
 
 确保已安装 [Go 1.20+](https://golang.org/dl/)
 
