@@ -326,13 +326,14 @@ func main() {
 		if cfg.RouterIP != "" && cfg.RouterMAC != "" {
 			fmt.Printf("路由器模式: IP=%s, MAC=%s\n", cfg.RouterIP, cfg.RouterMAC)
 		}
-		// 使用配置文件中的配置
-		cfg.User = cfg.User
-		cfg.Password = cfg.Password
-		cfg.NetType = nettype // 优先使用命令行参数，如果命令行没提供则保持配置文件中的值
-		cfg.StudentMode = studentMode
-		cfg.RouterIP = ip
-		cfg.RouterMAC = mac
+
+		// 修复：将配置文件中的值赋给命令行变量
+		user = cfg.User
+		passwd = cfg.Password
+		nettype = cfg.NetType
+		studentMode = cfg.StudentMode
+		ip = cfg.RouterIP
+		mac = cfg.RouterMAC
 	} else if user != "" && passwd != "" {
 		// 从命令行参数加载
 		cfg := &Config{
