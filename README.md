@@ -18,12 +18,10 @@
 
 ## 📦 快速开始
 
-### 方法一：使用预编译二进制（仅 Windows）
+### 方法一：使用预编译二进制
 
-> 目前提供 Windows 32/64 位版本（Linux 用户建议自行编译）
-
-1. 下载 [GXU_Net_AutoLogin.7z](https://teachermate.oss-cn-qingdao.aliyuncs.com/J555S-1766214000282-GXU_Net_AutoLogin.7z)
-2. 解压后运行 `GXU_Net_AutoLogin.exe`
+1. 从 [Release](https://github.com/Chocola-X/GXU-Net-AutoLogin/releases) 下载对应的二进制文件
+2. 运行 `GXU_Net_AutoLogin`
 3. 首次运行会生成 `config.txt`，按提示填写账号密码
 4. 再次运行即可后台守护
 
