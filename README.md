@@ -93,7 +93,26 @@ Router_MAC=36:88:8A:99:A4:CC
 ```
 
 ---
+## 💡 Windows隐藏运行的黑窗口
 
+在Windows系统中，如果你对弹出的黑窗口感到不爽，可以使用VBScript隐藏它：
+
+1. 在程序的同目录，创建一个文本文件
+2. 填写以下内容：
+   ```vbs
+   CreateObject("Wscript.Shell").Run "GXU_Net_AutoLogin.exe", 0, False
+   ```
+3. 将文件命名为 `run.vbs`（或你喜欢的名字）
+
+这样运行 `run.vbs` 就不会显示黑窗口了。
+
+如果你需要设置计划任务，记得使用**绝对路径，并制定对应的参数**，例如：
+
+```vbs
+CreateObject("Wscript.Shell").Run "D:\GXU_Net_AutoLogin.exe -user 2103990721 -passwd 072102 -nettype unicom -studentmode -ip 10.165.23.233 -mac 00:11:22:33:44:55", 0, False
+```
+
+---
 ## 🔧 技术原理
 
 程序通过向广西大学认证服务器发送标准 ePortal 登录请求实现联网：
